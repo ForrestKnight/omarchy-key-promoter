@@ -37,6 +37,8 @@ Nothing happened, or the menu was dismissed with Escape: no toast. Launching wit
 keybinding itself never triggers a toast, because the menu wasn't involved.
 
 When several bindings do the same thing, the one with the fewest modifiers wins.
+Media keys (`XF86Calculator`, `XF86Mail`, ...) are never promoted: they are labeled hardware
+buttons, not shortcuts to learn, and many keyboards lack them.
 
 ## Settings
 

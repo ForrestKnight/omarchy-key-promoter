@@ -113,10 +113,18 @@ function prepare(payload) {
       dispatcher: String(b.dispatcher || ""),
       arg: String(b.arg || ""),
       mods: modCount(combo),
-      sig: signature(b, data.defaults)
+      // Media keys (XF86Calculator, XF86Mail...) are labeled hardware buttons,
+      // not shortcuts worth teaching, and many keyboards lack them. Never promote.
+      media: isMediaKey(combo),
+      sig: isMediaKey(combo) ? null : signature(b, data.defaults)
     })
   }
   return out
+}
+
+function isMediaKey(combo) {
+  var parts = String(combo || "").split(" + ")
+  return /^XF86/i.test(parts[parts.length - 1] || "")
 }
 
 function modCount(combo) {
