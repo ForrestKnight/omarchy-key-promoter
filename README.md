@@ -2,12 +2,14 @@
 
 [Key Promoter X](https://plugins.jetbrains.com/plugin/9792-key-promoter-x), but for your desktop.
 Reach for the Omarchy menu to do something that already has a keybinding, and a small
-toast shows you the shortcut. It uses **this machine's** bindings, not Omarchy's defaults,
+toast shows you the shortcut. It uses **your** bindings, not Omarchy's defaults,
 so every override in `~/.config/hypr/bindings.lua` is reflected.
 
 The toast is drawn by the Omarchy shell with the shell's own theme tokens (popup
 background, border, accent, font, corner radius), so it matches whatever theme is active
 and follows `omarchy theme set` instantly.
+
+![Toast showing SUPER + B for Browser (Chromium)](preview.png)
 
 ## Install
 
