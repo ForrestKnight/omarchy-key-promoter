@@ -1,4 +1,4 @@
-# Key Promoter for Omarchy
+# Omarchy Key Promoter
 
 [Key Promoter X](https://plugins.jetbrains.com/plugin/9792-key-promoter-x), but for your desktop.
 Reach for the Omarchy menu to do something that already has a keybinding, and a small
@@ -43,13 +43,13 @@ When several bindings do the same thing, the one with the fewest modifiers wins.
 Inline on the plugin entry in `~/.config/omarchy/shell.json` (hot-reloads on save):
 
 ```json
-{ "id": "fkcodes.key-promoter", "duration": 3500, "position": "top", "window": 3000, "showCount": true }
+{ "id": "fkcodes.key-promoter", "duration": 3500, "position": "bottom-right", "window": 3000, "showCount": true }
 ```
 
 | Key         | Default | Meaning                                                   |
 |-------------|---------|-----------------------------------------------------------|
 | `duration`  | `3500`  | milliseconds the toast stays up                           |
-| `position`  | `top`   | `top` (under the bar) or `bottom`                         |
+| `position`  | `bottom-right` | `top-left`, `top-center`, `top-right`, `bottom-left`, `bottom-center`, `bottom-right`. Clears the bar on a shared edge. |
 | `window`    | `3000`  | milliseconds after the menu closes during which a launch counts |
 | `showCount` | `true`  | show `×N` for how often that shortcut has been promoted   |
 

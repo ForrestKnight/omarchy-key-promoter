@@ -12,7 +12,8 @@ Item {
 
   property var shell: null
   property int duration: 3500
-  property string position: "top"
+  // top-left | top-center | top-right | bottom-left | bottom-center | bottom-right
+  property string position: "bottom-right"
   property bool showCount: true
 
   property bool opened: false
@@ -20,10 +21,16 @@ Item {
   property string description: ""
   property int count: 0
 
+  readonly property string vertical: position.indexOf("top") === 0 ? "top" : "bottom"
+  readonly property string horizontal: position.indexOf("-left") > 0 ? "left" : (position.indexOf("-right") > 0 ? "right" : "center")
+
   readonly property string barPosition: shell && shell.barConfig ? String(shell.barConfig.position || "top") : "top"
   readonly property bool barVisible: shell && shell.bar ? !shell.bar.barHidden : true
   readonly property int barSize: shell && shell.bar && barVisible ? Math.max(0, shell.bar.barSize) : Style.bar.sizeHorizontal
-  readonly property int edgeMargin: Style.gapsOut + (barPosition === position && barVisible ? barSize + Style.gapsOut : 0)
+  // Clear the bar only on the edge the toast shares with it.
+  function margin(edge) { return Style.space(12) + (barPosition === edge && barVisible ? barSize + Style.gapsOut : 0) }
+  readonly property int edgeMargin: margin(vertical)
+  readonly property int sideMargin: margin(horizontal)
 
   readonly property int pad: Style.space(12)
   readonly property int slide: Style.space(8)
@@ -59,8 +66,10 @@ Item {
 
     BorderSurface {
       id: card
-      anchors.horizontalCenter: parent.horizontalCenter
-      y: root.position === "bottom"
+      x: root.horizontal === "left" ? root.sideMargin
+        : root.horizontal === "right" ? panel.width - card.width - root.sideMargin
+        : Math.round((panel.width - card.width) / 2)
+      y: root.vertical === "bottom"
         ? panel.height - card.height - root.edgeMargin + (root.opened ? 0 : root.slide)
         : root.edgeMargin - (root.opened ? 0 : root.slide)
       width: card.borderLeft + root.pad + row.implicitWidth + root.pad + card.borderRight

@@ -28,9 +28,11 @@ Item {
   readonly property string statePath: home + "/.local/state/omarchy/key-promoter.json"
 
   // Settings, inline on this plugin's entry in ~/.config/omarchy/shell.json:
-  //   { "id": "fkcodes.key-promoter", "duration": 3500, "position": "top", "window": 3000, "showCount": true }
+  //   { "id": "fkcodes.key-promoter", "duration": 3500, "position": "bottom-right", "window": 3000, "showCount": true }
+  // position: top-left | top-center | top-right | bottom-left | bottom-center | bottom-right
   property int duration: 3500
-  property string position: "top"
+  property string position: "bottom-right"
+  readonly property var positions: ["top-left", "top-center", "top-right", "bottom-left", "bottom-center", "bottom-right"]
   property int window: 3000
   property bool showCount: true
 
@@ -47,7 +49,11 @@ Item {
         var e = list[i]
         if (!e || e.id !== service.pluginId) continue
         if (e.duration !== undefined) duration = Math.max(500, parseInt(e.duration, 10) || 3500)
-        if (e.position === "top" || e.position === "bottom") position = e.position
+        if (e.position !== undefined) {
+          var pos = String(e.position)
+          if (pos === "top" || pos === "bottom") pos += "-center"
+          if (positions.indexOf(pos) !== -1) position = pos
+        }
         if (e.window !== undefined) window = Math.max(500, parseInt(e.window, 10) || 3000)
         if (e.showCount !== undefined) showCount = e.showCount !== false
         return
