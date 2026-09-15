@@ -9,7 +9,7 @@ The toast is drawn by the Omarchy shell with the shell's own theme tokens (popup
 background, border, accent, font, corner radius), so it matches whatever theme is active
 and follows `omarchy theme set` instantly.
 
-![Toast showing SUPER + B for Browser (Chromium)](preview.png)
+https://github.com/user-attachments/assets/bc4f9835-f0d0-4a26-a171-30b5f72b02d7
 
 ## Install
 
