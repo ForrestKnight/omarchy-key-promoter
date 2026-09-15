@@ -9,7 +9,7 @@ The toast is drawn by the Omarchy shell with the shell's own theme tokens (popup
 background, border, accent, font, corner radius), so it matches whatever theme is active
 and follows `omarchy theme set` instantly.
 
-https://github.com/user-attachments/assets/bc4f9835-f0d0-4a26-a171-30b5f72b02d7
+https://github.com/user-attachments/assets/06ec77e3-3ab2-4406-ab90-7ce99275f386
 
 ## Install
 
