@@ -22,6 +22,22 @@ omarchy-shell shell rescanPlugins
 omarchy plugin enable fkcodes.key-promoter
 ```
 
+## Remove
+
+```bash
+omarchy plugin remove fkcodes.key-promoter
+```
+
+That deletes the plugin directory and its shell.json entry. The only other file it ever
+writes is `~/.local/state/omarchy/key-promoter.json` (promotion counts); delete it if you
+want a clean slate.
+
+## Dependencies and privileges
+
+Nothing beyond a stock Omarchy install: `omarchy-menu-keybindings`, `hyprctl`, `jq`, `ps`.
+No sudo, no network, no daemons. It never edits Hyprland or shell configuration; the only
+config it touches is its own inline entry in `shell.json`, and only when you edit it.
+
 ## How it decides to speak up
 
 The plugin never sees key presses. It listens to Hyprland events and only pays
@@ -80,3 +96,7 @@ bin/keybinds    exports the machine's effective bindings as JSON (reuses the res
 Workspace switches and other things done by clicking the bar. Bar widgets are first-party
 code, so a plugin can't see those clicks; the same goes for menu actions that neither open
 a window nor leave a process behind (nightlight toggle finishes before we can look).
+
+## License
+
+MIT. See `LICENSE`.
