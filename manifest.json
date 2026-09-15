@@ -4,7 +4,7 @@
   "name": "Omarchy Key Promoter",
   "version": "0.1.0",
   "author": "Forrest Knight",
-  "description": "Shows the keyboard shortcut whenever you reach for the menu instead. Reads this machine's own Hyprland bindings.",
+  "description": "Shows the keyboard shortcut whenever you reach for the menu instead. Reads your own Hyprland bindings.",
   "kinds": ["service"],
   "entryPoints": { "service": "Service.qml" }
 }
