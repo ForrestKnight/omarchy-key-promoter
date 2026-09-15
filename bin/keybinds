@@ -1,0 +1,59 @@
+#!/bin/bash
+# Print this machine's effective keybindings as JSON.
+#
+# Reuses the resolver inside omarchy-menu-keybindings (the one behind
+# SUPER + K), so the output is exactly what Hyprland has bound right now:
+# Omarchy defaults plus every override and unbind in ~/.config/hypr/*.lua.
+#
+# {
+#   "binds": [{ "combo": "SUPER + B", "description": "Browser", "dispatcher": "exec", "arg": "uwsm-app -- chromium" }],
+#   "defaults": { "browser": "chromium", "editor": "nvim" }
+# }
+
+set -o pipefail
+
+resolver=$(command -v omarchy-menu-keybindings) || exit 1
+
+# Source only the function definitions (everything above output_keybindings),
+# never the interactive tail of the script.
+source <(sed -n '1,/^output_keybindings() {/p' "$resolver" | sed '$d')
+
+records() {
+  if declare -F output_binding_records >/dev/null; then
+    # "<combo padded> → <description>\t<dispatcher>\t<arg>"
+    output_binding_records
+  else
+    # Resolver layout changed upstream: fall back to the printed list. It has
+    # no commands, so only description-based matching remains.
+    "$resolver" --print | sed 's/$/\t\t/'
+  fi
+}
+
+default_browser() {
+  local id
+  id=$(env -u BROWSER xdg-settings get default-web-browser 2>/dev/null)
+  [[ -z $id ]] && id=$(xdg-mime query default x-scheme-handler/https 2>/dev/null)
+  printf '%s' "${id%.desktop}"
+}
+
+default_editor() {
+  local file="$HOME/.local/state/omarchy/defaults/editor"
+  if [[ -f $file ]]; then head -n1 "$file"; else printf 'nvim'; fi
+}
+
+records | jq -Rn --arg browser "$(default_browser)" --arg editor "$(default_editor)" '
+  {
+    binds: [
+      inputs
+      | split("\t") as $f
+      | ($f[0] | split(" → ")) as $head
+      | select(($head | length) >= 2)
+      | {
+          combo: ($head[0] | sub("\\s+$"; "")),
+          description: ($head[1:] | join(" → ")),
+          dispatcher: ($f[1] // ""),
+          arg: ($f[2:] | join("\t"))
+        }
+    ],
+    defaults: { browser: $browser, editor: $editor }
+  }'
