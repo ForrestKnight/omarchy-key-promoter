@@ -195,11 +195,14 @@ function matchLayer(binds, namespace) {
   return pick(found)
 }
 
-// `ps -eo etimes=,args=` output: young omarchy-* scripts (screenshots, the
-// color picker, lock...) that have no window or layer of their own.
+// `ps -eo etimes=,args=` output: young processes. Matches omarchy-*
+// script binds that have no window or layer of their own, and TUI binds
+// whose app was launched from the menu (desktop file) so it opens in a
+// generic terminal window whose class cannot be matched back to the app.
 function matchProcesses(binds, psOutput, maxAgeSeconds) {
   var lines = String(psOutput || "").split("\n")
-  var young = {}
+  var youngCmd = {}
+  var youngProcs = {}
   for (var i = 0; i < lines.length; i++) {
     var m = /^\s*(\d+)\s+(.*)$/.exec(lines[i])
     if (!m) continue
@@ -207,13 +210,21 @@ function matchProcesses(binds, psOutput, maxAgeSeconds) {
     var tokens = stripWrappers(shellSplit(m[2]))
     for (var t = 0; t < tokens.length && t < 3; t++) {
       var name = basename(tokens[t])
-      if (name.indexOf("omarchy-") === 0) { young[name] = true; break }
+      if (name.indexOf("omarchy-") === 0) { youngCmd[name] = true; break }
+      if (t === 0) youngProcs[name] = true
     }
   }
   var found = []
   for (var b = 0; b < binds.length; b++) {
     var s = binds[b].sig
-    if (s && s.kind === "cmd" && young[s.cmd]) found.push({ score: 1, bind: binds[b] })
+    if (!s) continue
+    if (s.kind === "cmd" && youngCmd[s.cmd]) { found.push({ score: 1, bind: binds[b] }); continue }
+    if (s.kind === "tui") {
+      // s.value is like "org.omarchy.cliamp"; the process name is the last segment.
+      var bps = String(s.value).split(".")
+      var app = bps[bps.length - 1]
+      if (app && youngProcs[app]) found.push({ score: 1, bind: binds[b] })
+    }
   }
   return pick(found)
 }
