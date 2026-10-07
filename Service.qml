@@ -12,6 +12,20 @@ import "Promoter.js" as Promoter
 // or an omarchy-* script started (screenshot, color picker, lock). If so, it
 // shows the shortcut in a small themed toast.
 //
+// The menu closing is not enough on its own: dismissing it with Escape and
+// then pressing a shortcut looks the same from Hyprland's side. So a launch
+// also has to show it came from the shell, not from a keybinding:
+//   - windows: the menu's app list is the only thing in Omarchy that starts
+//     apps through `uwsm-app -- gtk-launch`, which systemd registers as a
+//     scope named app-*-gtk\x2dlaunch-*.scope. inotify on the app slice sees
+//     that scope appear before the window does. (Walking from the window back
+//     to a process would not work: a Chromium window belongs to the browser
+//     that was already running, however it was asked for.)
+//   - scripts: a process the shell started inherits the shell's environment,
+//     and omarchy-launch-shell sets QS_* variables Hyprland's never has.
+//   - layers (emojis, clipboard): no trace survives, so these still rely on
+//     the time window alone.
+//
 // Bindings are read from this machine, not from Omarchy's defaults, via
 // bin/keybinds, which reuses the resolver behind SUPER + K.
 Item {
@@ -40,6 +54,24 @@ Item {
   property var counts: ({})
   property double armedAt: 0
   property int psRuns: 0
+
+  // Launch-origin evidence, see the header comment.
+  // Where uwsm puts app scopes: .../user@UID.service/app.slice/app-graphical.slice
+  readonly property string appSlice: {
+    var m = /\/run\/user\/(\d+)/.exec(Quickshell.env("XDG_RUNTIME_DIR") || "")
+    return m ? "/sys/fs/cgroup/user.slice/user-" + m[1] + ".slice/user@" + m[1] + ".service/app.slice/app-graphical.slice" : ""
+  }
+  // An environment variable only shell-started processes carry. Read off this
+  // very process, so if omarchy-launch-shell stops setting it we notice and
+  // fall back to the time window instead of never promoting a script again.
+  readonly property string shellMarker: {
+    var names = ["QS_NO_RELOAD_POPUP", "QS_DISABLE_FILE_WATCHER"]
+    for (var i = 0; i < names.length; i++) if (Quickshell.env(names[i])) return names[i]
+    return ""
+  }
+  property bool launchWatchOk: false
+  property int launchWatchRetries: 0
+  property double launcherAt: 0
 
   function applySettings(raw) {
     try {
@@ -95,12 +127,21 @@ Item {
     psTimer.stop()
   }
 
+  // Did the menu's app list launch something since (just before) it closed?
+  // Without a working watcher this cannot be known, so fall back to timing.
+  function fromLauncher() {
+    return !launchWatchOk || launcherAt >= armedAt - 1000
+  }
+
   function promote(bind) {
     disarm()
     toast.show(bind.combo, bind.description, bump(bind.combo))
   }
 
-  Component.onCompleted: bindsProc.running = true
+  Component.onCompleted: {
+    bindsProc.running = true
+    if (appSlice) launchWatch.running = true
+  }
 
   Connections {
     target: Hyprland
@@ -115,7 +156,7 @@ Item {
         var cls = parts.length > 2 ? parts[2] : ""
         var entry = cls ? DesktopEntries.heuristicLookup(cls) : null
         var hit = Promoter.matchWindow(service.binds, cls, entry)
-        if (hit) service.promote(hit)
+        if (hit && service.fromLauncher()) service.promote(hit)
       } else if (name === "openlayer") {
         // The menu reopened (submenu, launcher); wait for what it does next.
         if (data === "omarchy-menu") { service.disarm(); return }
@@ -137,16 +178,47 @@ Item {
     }
   }
 
+  // Prints "<etimes> <shell|-> <args>" for processes younger than 4s, where
+  // "shell" means the process environment carries the shell marker.
   Process {
     id: psProc
-    command: ["ps", "-eo", "etimes=,args="]
+    command: ["bash", "-c", [
+      "ps -eo etimes=,pid=,args= | while read -r et pid args; do",
+      "  [ \"$et\" -le 3 ] || continue",
+      "  tag=-",
+      "  if [ -n \"$1\" ] && grep -qsz \"^$1=\" \"/proc/$pid/environ\"; then tag=shell; fi",
+      "  printf '%s %s %s\\n' \"$et\" \"$tag\" \"$args\"",
+      "done"
+    ].join("\n"), "ps-scan", service.shellMarker]
     stdout: StdioCollector {
       onStreamFinished: {
         if (!service.armed()) return
-        var hit = Promoter.matchProcesses(service.binds, text, 3)
+        var hit = Promoter.matchProcesses(service.binds, text, 3, service.shellMarker !== "")
         if (hit) service.promote(hit)
       }
     }
+  }
+
+  // Scope directories appearing under the app slice, one name per line.
+  Process {
+    id: launchWatch
+    command: ["inotifywait", "-m", "-q", "-e", "create", "--format", "%f", service.appSlice]
+    onStarted: { service.launchWatchOk = true; service.launchWatchRetries = 0 }
+    onExited: {
+      service.launchWatchOk = false
+      if (service.launchWatchRetries++ < 5) launchWatchRetry.restart()
+      else console.warn("key-promoter: launch watcher gave up; falling back to the time window alone")
+    }
+    stdout: SplitParser {
+      onRead: function(line) { if (Promoter.isLauncherScope(line)) service.launcherAt = Date.now() }
+    }
+    stderr: StdioCollector { onStreamFinished: if (text.length) console.warn("key-promoter inotifywait:", text) }
+  }
+
+  Timer {
+    id: launchWatchRetry
+    interval: 5000
+    onTriggered: launchWatch.running = true
   }
 
   Process {
@@ -189,6 +261,15 @@ Item {
     function show(combo: string, description: string): string { toast.show(combo, description, 0); return "ok" }
     function hide(): string { toast.hide(); return "ok" }
     function stats(): string { return JSON.stringify(service.counts) }
+    function state(): string {
+      return JSON.stringify({
+        armed: service.armed(),
+        launchWatch: service.launchWatchOk,
+        appSlice: service.appSlice,
+        shellMarker: service.shellMarker,
+        msSinceLauncher: service.launcherAt ? Date.now() - service.launcherAt : null
+      })
+    }
     function resolved(): string {
       var out = []
       for (var i = 0; i < service.binds.length; i++) {

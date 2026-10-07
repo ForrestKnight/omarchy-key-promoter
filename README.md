@@ -36,8 +36,9 @@ want a clean slate.
 
 ## Dependencies and privileges
 
-Nothing beyond a stock Omarchy install: `omarchy-menu-keybindings`, `hyprctl`, `jq`, `ps`.
-No sudo, no network, no daemons. It never edits Hyprland or shell configuration; the only
+Nothing beyond a stock Omarchy install: `omarchy-menu-keybindings`, `hyprctl`, `jq`, `ps`,
+`inotifywait` (inotify-tools, in Omarchy's base packages). No sudo, no network; the only
+long-lived helper is one `inotifywait` watching a cgroup directory, see below. It never edits Hyprland or shell configuration; the only
 config it touches is its own inline entry in `shell.json`, and only when you edit it.
 
 ## How it decides to speak up
@@ -53,6 +54,25 @@ attention for a few seconds after the Omarchy menu closes. In that window:
 
 Nothing happened, or the menu was dismissed with Escape: no toast. Launching with the
 keybinding itself never triggers a toast, because the menu wasn't involved.
+
+Closing the menu alone is not proof the menu did it: dismissing it with Escape and then
+pressing a shortcut right away looks identical in Hyprland's event stream. So the launch
+also has to show it came from the shell:
+
+- **Windows.** The menu's app list is the only thing in Omarchy that starts apps through
+  `uwsm-app -- gtk-launch`, and systemd registers that as a scope named
+  `app-*-gtk\x2dlaunch-*.scope`. An `inotifywait` on the user's `app-graphical.slice`
+  cgroup directory sees that scope appear a moment before the window does. No scope, no
+  toast. (Tracing the window back to a process would not work: a new Chromium window
+  belongs to the browser that was already running, however it was asked for.)
+- **Scripts.** A process the shell started inherits the shell's environment, which
+  `omarchy-launch-shell` marks with `QS_*` variables Hyprland's own environment never has.
+  The process scan only counts `omarchy-*` scripts that carry the marker.
+- **Layers** (emojis, clipboard) leave no trace either way, so those still rely on the
+  time window alone.
+
+If the watcher cannot run or the marker is absent, the plugin falls back to the time window.
+`omarchy-shell key-promoter state` shows which checks are active.
 
 When several bindings do the same thing, the one with the fewest modifiers wins.
 Media keys (`XF86Calculator`, `XF86Mail`, ...) are never promoted: they are labeled hardware
@@ -81,6 +101,7 @@ omarchy-shell key-promoter hide
 omarchy-shell key-promoter reload                        # re-read bindings (also automatic on Hyprland config reload)
 omarchy-shell key-promoter resolved                      # JSON: every bind it can match, with its launch signature
 omarchy-shell key-promoter stats                         # JSON: promotion counts, persisted in ~/.local/state/omarchy/key-promoter.json
+omarchy-shell key-promoter state                         # JSON: armed?, launch watcher running?, shell marker, ms since the app list last launched something
 ```
 
 ## Layout
@@ -98,6 +119,9 @@ bin/keybinds    exports the machine's effective bindings as JSON (reuses the res
 Workspace switches and other things done by clicking the bar. Bar widgets are first-party
 code, so a plugin can't see those clicks; the same goes for menu actions that neither open
 a window nor leave a process behind (nightlight toggle finishes before we can look).
+
+Shell layers opened by shortcut within a few seconds of dismissing the menu with Escape can
+still be misattributed to the menu; windows and scripts no longer are.
 
 ## License
 

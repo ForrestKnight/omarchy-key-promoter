@@ -195,16 +195,26 @@ function matchLayer(binds, namespace) {
   return pick(found)
 }
 
-// `ps -eo etimes=,args=` output: young omarchy-* scripts (screenshots, the
-// color picker, lock...) that have no window or layer of their own.
-function matchProcesses(binds, psOutput, maxAgeSeconds) {
+// Name of a systemd unit uwsm created for `uwsm-app -- gtk-launch ...`, which
+// is how the shell's app list (and nothing else in Omarchy) starts apps.
+// systemd escapes the hyphen: app-Hyprland-gtk\x2dlaunch-0b3dedd1.scope
+function isLauncherScope(unitName) {
+  return /gtk(\\x2d|-)launch/i.test(String(unitName || ""))
+}
+
+// Process scan lines "<etimes> <tag> <args>": young omarchy-* scripts
+// (screenshots, the color picker, lock...) that have no window or layer of
+// their own. With `shellOnly`, only processes tagged "shell" count, i.e.
+// those whose environment shows the shell (not a keybinding) started them.
+function matchProcesses(binds, psOutput, maxAgeSeconds, shellOnly) {
   var lines = String(psOutput || "").split("\n")
   var young = {}
   for (var i = 0; i < lines.length; i++) {
-    var m = /^\s*(\d+)\s+(.*)$/.exec(lines[i])
+    var m = /^\s*(\d+)\s+(\S+)\s+(.*)$/.exec(lines[i])
     if (!m) continue
     if (parseInt(m[1], 10) > maxAgeSeconds) continue
-    var tokens = stripWrappers(shellSplit(m[2]))
+    if (shellOnly && m[2] !== "shell") continue
+    var tokens = stripWrappers(shellSplit(m[3]))
     for (var t = 0; t < tokens.length && t < 3; t++) {
       var name = basename(tokens[t])
       if (name.indexOf("omarchy-") === 0) { young[name] = true; break }
