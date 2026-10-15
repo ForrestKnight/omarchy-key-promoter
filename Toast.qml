@@ -28,9 +28,11 @@ Item {
   readonly property bool barVisible: shell && shell.bar ? !shell.bar.barHidden : true
   readonly property int barSize: shell && shell.bar && barVisible ? Math.max(0, shell.bar.barSize) : Style.bar.sizeHorizontal
   // Clear the bar only on the edge the toast shares with it.
-  function margin(edge) { return Style.space(12) + (barPosition === edge && barVisible ? barSize + Style.gapsOut : 0) }
-  readonly property int edgeMargin: margin(vertical)
-  readonly property int sideMargin: margin(horizontal)
+  // NOTE: named `inset` (not `margin`) because Item.margin exists as a
+  // property in Quickshell >= 0.3 and shadows any function with that name.
+  function inset(edge) { return Style.space(12) + (barPosition === edge && barVisible ? barSize + Style.gapsOut : 0) }
+  readonly property int edgeMargin: inset(vertical)
+  readonly property int sideMargin: inset(horizontal)
 
   readonly property int pad: Style.space(12)
   readonly property int slide: Style.space(8)
