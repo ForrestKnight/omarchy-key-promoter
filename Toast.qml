@@ -2,6 +2,11 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
+// Qualified on purpose: QtQuick exports a `Color` value type, which wins over
+// the shell's Color singleton when qs.Commons is imported unqualified, leaving
+// every surface on Qt's default white/black. Omarchy's own components reach
+// colors through this alias for the same reason.
+import qs.Commons as Commons
 import qs.Ui
 import "Promoter.js" as Promoter
 
@@ -34,6 +39,14 @@ Item {
 
   readonly property int pad: Style.space(12)
   readonly property int slide: Style.space(8)
+
+  // Card colours. Color.popups comes from the theme's shell.toml; when the shell predates that group
+  // (or a theme ships a shell.toml without it) the whole group is undefined, which used to leave the
+  // card transparent and every label black. Fall back to the always-present palette tokens instead.
+  readonly property var popupTokens: Commons.Color.popups
+  readonly property color cardBackground: popupTokens ? popupTokens.background : Commons.Color.background
+  readonly property color cardText: popupTokens ? popupTokens.text : Commons.Color.foreground
+  readonly property color cardBorder: popupTokens ? popupTokens.border : Commons.Color.accent
 
   function show(combo, text, times) {
     chips = Promoter.chips(combo)
@@ -74,8 +87,8 @@ Item {
         : root.edgeMargin - (root.opened ? 0 : root.slide)
       width: card.borderLeft + root.pad + row.implicitWidth + root.pad + card.borderRight
       height: card.borderTop + root.pad + row.implicitHeight + root.pad + card.borderBottom
-      color: Util.alpha(Color.popups.background, 0.97)
-      borderSpec: Border.surfaceSpec("popups", "border", Color.popups.border, Math.max(1, Style.space(2)))
+      color: Util.alpha(root.cardBackground, 0.97)
+      borderSpec: Border.surfaceSpec("popups", "border", root.cardBorder, Math.max(1, Style.space(2)))
       radius: Style.cornerRadius
       opacity: root.opened ? 1 : 0
 
@@ -94,7 +107,7 @@ Item {
           text: "󰌌"
           font.family: Style.font.family
           font.pixelSize: Style.font.displayLarge * 0.75
-          color: Color.accent
+          color: Commons.Color.accent
         }
 
         Row {
@@ -112,16 +125,16 @@ Item {
                 text: "+"
                 font.family: Style.font.family
                 font.pixelSize: Style.font.bodySmall
-                color: Util.alpha(Color.popups.text, 0.5)
+                color: Util.alpha(root.cardText, 0.5)
               }
               Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 width: label.implicitWidth + Style.space(12)
                 height: label.implicitHeight + Style.space(6)
                 radius: Math.min(Style.cornerRadius, Style.space(4))
-                color: Util.alpha(Color.accent, 0.12)
+                color: Util.alpha(Commons.Color.accent, 0.12)
                 border.width: 1
-                border.color: Util.alpha(Color.accent, 0.6)
+                border.color: Util.alpha(Commons.Color.accent, 0.6)
                 Text {
                   id: label
                   anchors.centerIn: parent
@@ -130,7 +143,7 @@ Item {
                   font.family: Style.font.family
                   font.pixelSize: Style.font.body
                   font.bold: true
-                  color: Color.popups.text
+                  color: root.cardText
                 }
               }
             }
@@ -143,7 +156,7 @@ Item {
           text: root.description
           font.family: Style.font.family
           font.pixelSize: Style.font.title
-          color: Color.popups.text
+          color: root.cardText
           elide: Text.ElideRight
           maximumLineCount: 1
           width: Math.min(implicitWidth, Style.space(260))
@@ -156,7 +169,7 @@ Item {
           text: "×" + root.count
           font.family: Style.font.family
           font.pixelSize: Style.font.bodySmall
-          color: Util.alpha(Color.popups.text, 0.5)
+          color: Util.alpha(root.cardText, 0.5)
         }
       }
     }
