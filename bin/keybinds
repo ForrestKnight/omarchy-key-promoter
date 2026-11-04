@@ -31,7 +31,10 @@ records() {
 
 default_browser() {
   local id
-  id=$(env -u BROWSER xdg-settings get default-web-browser 2>/dev/null)
+  # omarchy-browser.desktop is Omarchy's link-routing wrapper, not a browser;
+  # omarchy-cmd-default-browser skips it and returns the real one.
+  command -v omarchy-cmd-default-browser >/dev/null && id=$(omarchy-cmd-default-browser 2>/dev/null)
+  [[ -z $id || $id == omarchy-browser.desktop ]] && id=$(env -u BROWSER xdg-settings get default-web-browser 2>/dev/null)
   [[ -z $id ]] && id=$(xdg-mime query default x-scheme-handler/https 2>/dev/null)
   printf '%s' "${id%.desktop}"
 }
