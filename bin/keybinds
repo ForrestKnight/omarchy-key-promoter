@@ -48,7 +48,17 @@ default_editor() {
   if [[ -f $file ]]; then head -n1 "$file"; else printf 'nvim'; fi
 }
 
-records | jq -Rn --arg browser "$(default_browser)" --arg editor "$(default_editor)" '
+# The terminal omarchy-launch-terminal opens, via xdg-terminal-exec.
+default_terminal() {
+  local id
+  read -r id < <(xdg-terminal-exec --print-id 2>/dev/null)
+  # The id can end with a desktop action ("foot.desktop:server"). Drop it, as
+  # omarchy-default-terminal does.
+  id=${id%%:*}
+  printf '%s' "${id%.desktop}"
+}
+
+records | jq -Rn --arg browser "$(default_browser)" --arg editor "$(default_editor)" --arg terminal "$(default_terminal)" '
   {
     binds: [
       inputs
@@ -62,5 +72,5 @@ records | jq -Rn --arg browser "$(default_browser)" --arg editor "$(default_edit
           arg: ($f[2:] | join("\t"))
         }
     ],
-    defaults: { browser: $browser, editor: $editor }
+    defaults: { browser: $browser, editor: $editor, terminal: $terminal }
   }'
