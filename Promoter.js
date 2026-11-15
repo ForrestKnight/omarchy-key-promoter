@@ -59,6 +59,14 @@ function webappSignature(url, cmd) {
   return { kind: "webapp", host: host, path: path.replace(/\//g, "_").toLowerCase(), cmd: cmd }
 }
 
+// omarchy-launch-* scripts that start a GUI app, and the windows that app
+// opens: its window class, or its desktop entry's command or id.
+var launcherWindows = {
+  "omarchy-launch-1password": ["1password"],
+  "omarchy-launch-signal": ["signal", "signal-desktop"],
+  "omarchy-launch-spotify": ["spotify"]
+}
+
 function signatureForCommand(command, defaults) {
   var tokens = stripWrappers(shellSplit(command))
   if (!tokens.length) return null
@@ -80,7 +88,21 @@ function signatureForCommand(command, defaults) {
   }
   if (t0 === "omarchy-launch-browser") return { kind: "app", value: String(d.browser || "").toLowerCase(), cmd: t0 }
   if (t0 === "omarchy-launch-nautilus" || t0 === "omarchy-launch-nautilus-cwd") return { kind: "app", value: "nautilus", cmd: t0 }
-  if (t0 === "omarchy-launch-terminal") return { kind: "cmd", cmd: t0 }
+  // Scripts that start an app keep their script signature and also list the
+  // windows they open, so starting the app itself from the menu matches too.
+  if (t0 === "omarchy-launch-terminal") {
+    // Only without a command. With one (tmux, herdr...) the window is the same
+    // terminal as a plain one, so the window cannot tell those binds apart.
+    var plain = tokens.length === 1 && d.terminal
+    return { kind: "cmd", cmd: t0, windows: plain ? [String(d.terminal).toLowerCase()] : [] }
+  }
+  if (t0 === "omarchy-launch-editor") {
+    // A terminal editor opens in an omarchy-launch-tui window
+    // (org.omarchy.<editor>), a GUI editor under its own class.
+    var ed = basename(d.editor || "nvim").toLowerCase()
+    return { kind: "cmd", cmd: t0, windows: ["org.omarchy." + ed, ed] }
+  }
+  if (launcherWindows[t0]) return { kind: "cmd", cmd: t0, windows: launcherWindows[t0] }
   if (t0.indexOf("omarchy-menu") === 0) return { kind: "menu", cmd: t0 }
   if (t0 === "omarchy-shell") {
     for (var i = 1; i < tokens.length; i++) {
@@ -148,6 +170,14 @@ function pick(candidates) {
   return best ? best.bind : null
 }
 
+// The windows a signature can open, or null when it is not matched by window
+// name: one for an app bind, any number for a script that starts an app.
+function windowsOf(sig) {
+  if (sig.kind === "app") return sig.value ? [sig.value] : []
+  if (sig.kind === "cmd") return sig.windows || []
+  return null
+}
+
 // A window with class `cls` appeared. `entry` is the DesktopEntry Quickshell
 // resolved for it (may be null); its command and id catch apps whose binary
 // name differs from the window class.
@@ -169,10 +199,11 @@ function matchWindow(binds, cls, entry) {
     var s = binds[i].sig
     if (!s) continue
     var score = 0
-    if (s.kind === "app" && s.value) {
-      if (s.value === c) score = 20
-      else if (entryCmd && s.value === entryCmd) score = 15
-      else if (entryId && s.value === entryId) score = 12
+    var windows = windowsOf(s)
+    if (windows) {
+      if (windows.indexOf(c) !== -1) score = 20
+      else if (entryCmd && windows.indexOf(entryCmd) !== -1) score = 15
+      else if (entryId && windows.indexOf(entryId) !== -1) score = 12
     } else if (s.kind === "tui") {
       if (s.value === c) score = 25
     } else if (s.kind === "webapp" && web) {

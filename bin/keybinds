@@ -31,8 +31,15 @@ records() {
 
 default_browser() {
   local id
-  id=$(env -u BROWSER xdg-settings get default-web-browser 2>/dev/null)
-  [[ -z $id ]] && id=$(xdg-mime query default x-scheme-handler/https 2>/dev/null)
+  # Newer Omarchy sets omarchy-browser.desktop (a link router) as the xdg
+  # default; omarchy-cmd-default-browser resolves the real browser behind it.
+  # It already falls back to xdg-settings and xdg-mime itself.
+  if command -v omarchy-cmd-default-browser >/dev/null; then
+    id=$(omarchy-cmd-default-browser 2>/dev/null)
+  else
+    id=$(env -u BROWSER xdg-settings get default-web-browser 2>/dev/null)
+    [[ -z $id ]] && id=$(xdg-mime query default x-scheme-handler/https 2>/dev/null)
+  fi
   printf '%s' "${id%.desktop}"
 }
 
@@ -41,7 +48,17 @@ default_editor() {
   if [[ -f $file ]]; then head -n1 "$file"; else printf 'nvim'; fi
 }
 
-records | jq -Rn --arg browser "$(default_browser)" --arg editor "$(default_editor)" '
+# The terminal omarchy-launch-terminal opens, via xdg-terminal-exec.
+default_terminal() {
+  local id
+  read -r id < <(xdg-terminal-exec --print-id 2>/dev/null)
+  # The id can end with a desktop action ("foot.desktop:server"). Drop it, as
+  # omarchy-default-terminal does.
+  id=${id%%:*}
+  printf '%s' "${id%.desktop}"
+}
+
+records | jq -Rn --arg browser "$(default_browser)" --arg editor "$(default_editor)" --arg terminal "$(default_terminal)" '
   {
     binds: [
       inputs
@@ -55,5 +72,5 @@ records | jq -Rn --arg browser "$(default_browser)" --arg editor "$(default_edit
           arg: ($f[2:] | join("\t"))
         }
     ],
-    defaults: { browser: $browser, editor: $editor }
+    defaults: { browser: $browser, editor: $editor, terminal: $terminal }
   }'
